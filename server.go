@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// HandleFunc 视图函数
 type HandleFunc func(ctx *Context)
 
 type server interface {
