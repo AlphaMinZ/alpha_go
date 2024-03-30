@@ -31,8 +31,11 @@ type HTTPServer struct {
 	srv  *http.Server
 	stop func() error
 
+	// V_1
 	// routers 临时存放
-	routers map[string]HandleFunc
+	// routers map[string]HandleFunc
+	// V_2
+	*router
 }
 
 func WithHTTPServerStop(fn func() error) HTTPOption {
@@ -63,7 +66,7 @@ func WithHTTPServerStop(fn func() error) HTTPOption {
 
 func NewHTTP(opts ...HTTPOption) *HTTPServer {
 	h := &HTTPServer{
-		routers: map[string]HandleFunc{},
+		router: newRouter(),
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -75,8 +78,8 @@ func NewHTTP(opts ...HTTPOption) *HTTPServer {
 // 接受前端传过来的请求
 // 转发前端的请求到框架
 func (h *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key := fmt.Sprintf("%s-%s", r.Method, r.URL.Path)
-	handler, ok := h.routers[key]
+	// 路由匹配
+	n, ok := h.getRouter(r.Method, r.URL.Path)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte("404 NOT FOUND"))
@@ -87,7 +90,7 @@ func (h *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := NewContext(w, r)
 	fmt.Printf("request %s - %s\n", c.Method, c.Pattern)
 	// 转发请求
-	handler(c)
+	n.handleFunc(c)
 }
 
 func (h *HTTPServer) Start(addr string) error {
@@ -102,12 +105,12 @@ func (h *HTTPServer) Stop() error {
 	return h.stop()
 }
 
-func (h *HTTPServer) addRouter(method string, pattern string, handleFunc HandleFunc) {
-	// key is only one
-	key := fmt.Sprintf("%s-%s", method, pattern)
-	fmt.Printf("add router %s - %s\n", method, pattern)
-	h.routers[key] = handleFunc
-}
+// func (h *HTTPServer) addRouter(method string, pattern string, handleFunc HandleFunc) {
+// 	// key is only one
+// 	key := fmt.Sprintf("%s-%s", method, pattern)
+// 	fmt.Printf("add router %s - %s\n", method, pattern)
+// 	h.routers[key] = handleFunc
+// }
 
 // GET get 请求
 func (h *HTTPServer) GET(pattern string, handleFunc HandleFunc) {
