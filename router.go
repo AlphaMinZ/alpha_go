@@ -55,43 +55,56 @@ func (r *router) addRouter(method string, pattern string, handleFunc HandleFunc)
 	root.handleFunc = handleFunc
 }
 
-func (r *router) getRouter(method string, pattern string) (*node, bool) {
+func (r *router) getRouter(method string, pattern string) (*node, map[string]string, bool) {
+	params := make(map[string]string)
+
 	if pattern == "" {
-		return nil, false
+		return nil, params, false
 	}
 
 	// 获取根节点
 	root, ok := r.trees[method]
 	if !ok {
-		return nil, false
+		return nil, params, false
 	}
 	// TODO / 根路由
 	if pattern == "/" {
-		return root, true
+		return root, params, true
 	}
 
 	// 切割 pattern
 	parts := strings.Split(strings.Trim(pattern, "/"), "/")
 	for _, part := range parts {
 		if part == "" {
-			return nil, false
+			return nil, params, false
 		}
 		root = root.getNode(part)
 		if root == nil {
-			return nil, false
+			return nil, params, false
+		}
+		if strings.HasPrefix(root.part, ":") {
+			params[root.part[1:]] = part
 		}
 	}
-	return root, true
+	return root, params, root.handleFunc != nil
 }
 
 type node struct {
-	part     string
+	part string
+	// children 静态路由
 	children map[string]*node
 	// handleFunc 节点视图函数
 	handleFunc HandleFunc
+	// paramChild 参数路由
+	paramChild *node
 }
 
 func (n *node) addNode(part string) *node {
+	if strings.HasPrefix(part, ":") && n.paramChild == nil {
+		n.paramChild = &node{part: part}
+		return n.paramChild
+	}
+
 	if n.children == nil {
 		n.children = make(map[string]*node)
 	}
@@ -106,12 +119,19 @@ func (n *node) addNode(part string) *node {
 }
 
 func (n *node) getNode(part string) *node {
+	if n.paramChild != nil {
+		return n.paramChild
+	}
+
 	if n.children == nil {
 		return nil
 	}
 
 	child, ok := n.children[part]
 	if !ok {
+		if n.paramChild != nil {
+			return n.paramChild
+		}
 		return nil
 	}
 	return child

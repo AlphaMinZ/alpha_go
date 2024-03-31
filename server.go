@@ -79,7 +79,7 @@ func NewHTTP(opts ...HTTPOption) *HTTPServer {
 // 转发前端的请求到框架
 func (h *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 路由匹配
-	n, ok := h.getRouter(r.Method, r.URL.Path)
+	n, params, ok := h.getRouter(r.Method, r.URL.Path)
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte("404 NOT FOUND"))
@@ -88,6 +88,7 @@ func (h *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// 构造当前请求的上下文
 	c := NewContext(w, r)
+	c.params = params
 	fmt.Printf("request %s - %s\n", c.Method, c.Pattern)
 	// 转发请求
 	n.handleFunc(c)
